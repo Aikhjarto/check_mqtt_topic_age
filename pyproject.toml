@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "check_mqtt_topic_age"
+authors = [
+    {name = "Thomas Wagner", email = "wagner-thomas@gmx.at"},
+]
+description = "Logs most recent time-of-arrival of mqtt messages"
+readme = "README.md"
+requires-python = ">=3.6"
+license = {text = "GPLv2"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "paho-mqtt",
+]
+dynamic = ["version"]
+
+[project.urls]
+repository = 'https://github.com/Aikhjarto/check_mqtt_topic_age'
+
+[project.scripts]
+check_mqtt_topic_age = "check_mqtt_topic_age:main"

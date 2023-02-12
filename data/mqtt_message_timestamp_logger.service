@@ -1,0 +1,15 @@
+[Unit]
+Description=MQTT message timestamp logger
+After=network.target
+
+[Service]
+User=nagios
+ExecStart=/usr/bin/python3 -u -m mqtt_message_timestamp_logger --db-filename /var/lib/nagios/mqtt_message_timestamp.db --mqtt-topic '#'
+
+# Restart every >2 seconds to avoid StartLimitInterval failure
+RestartSec=10
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
