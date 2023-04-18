@@ -72,7 +72,7 @@ def commit_thread(db_filename, interval = 1):
     while True:
         with dict_lock:
             if shared_dict:
-                logger.info("Commiting %s", shared_dict)
+                logger.debug("Commiting %s", shared_dict)
                 for key, value in shared_dict.items():
                     con.execute(f'INSERT OR REPLACE INTO topic_last_seen VALUES (?, ?)', (key, value))
                 con.commit()
