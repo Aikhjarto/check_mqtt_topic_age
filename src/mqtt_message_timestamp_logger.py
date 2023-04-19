@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig()
 
 shared_dict = {}
+shared_diff_dict = {}
 dict_lock = threading.Lock()
 
 def commit_interval_type(x):
@@ -56,15 +57,24 @@ def on_message(mqtt_client, userdata, message):
 
     """
 
+    now = time.time()
     if 'commit_interval' in userdata and userdata['commit_interval']:
-        logger.debug(f"message topic='{message.topic}")
         con: sqlite3.Connection = userdata['sqlite_con']
         with con:
-            con.execute(f'INSERT OR REPLACE INTO topic_last_seen VALUES (?, ?)', (message.topic, time.time()))
+            diff = None
+            cur = con.execute('SELECT timestamp from topic_last_seen WHERE topic=?', (message.topic,))
+            res = cur.fetchone()
+            if res:
+                diff = now - res[0]
+                con.execute('INSERT OR REPLACE INTO topic_last_interval VALUES (?, ?)', (message.topic, diff))
+            con.execute('INSERT OR REPLACE INTO topic_last_seen VALUES (?, ?)', (message.topic, now))
+            logger.debug(f"Inserting '{message.topic}, {now}, {diff}")
     else:
         with dict_lock:
+            if message.topic in shared_dict:
+                shared_diff_dict[message.topic]=now - shared_dict[message.topic]
             shared_dict[message.topic] = time.time()
-    
+            
 
 def commit_thread(db_filename, interval = 1):
     con = sqlite3.connect(db_filename)
@@ -72,9 +82,21 @@ def commit_thread(db_filename, interval = 1):
     while True:
         with dict_lock:
             if shared_dict:
-                logger.debug("Commiting %s", shared_dict)
                 for key, value in shared_dict.items():
-                    con.execute(f'INSERT OR REPLACE INTO topic_last_seen VALUES (?, ?)', (key, value))
+                    diff = None
+                    if key in shared_diff_dict:
+                        diff = shared_diff_dict[key]
+                    else:
+                        cur = con.execute('SELECT timestamp from topic_last_seen WHERE topic=?', (key,))
+                        res = cur.fetchone()
+                        if res:
+                            diff = value - res[0]
+                    if diff is not None:
+                        con.execute('INSERT OR REPLACE INTO topic_last_interval VALUES (?, ?)', (key, diff))
+
+                    con.execute('INSERT OR REPLACE INTO topic_last_seen VALUES (?, ?)', (key, value))
+
+                    logger.debug(f"Inserted {key}, {value}, {diff}")
                 con.commit()
                 shared_dict = {}
         time.sleep(interval)
@@ -82,14 +104,9 @@ def commit_thread(db_filename, interval = 1):
 
 def init_DB(db_filename):
     con = sqlite3.connect(db_filename)
-    cur = con.execute("SELECT name FROM sqlite_master")
-    tables = cur.fetchone()
-    if not tables or 'topic_last_seen' not in tables:
-        logger.info(f'Create table topic_last_seen in {db_filename}')
-        con.execute("CREATE TABLE topic_last_seen(topic type UNIQUE, timestamp)")
-        con.commit()
-    else:
-        logger.info(f'Found table topic_last_seen in {db_filename}')
+    con.execute("CREATE TABLE IF NOT EXISTS topic_last_seen(topic TEXT UNIQUE, timestamp REAL)")
+    con.execute("CREATE TABLE IF NOT EXISTS topic_last_interval(topic TEXT UNIQUE, timestamp REAL)")
+    con.commit()
     con.close()
 
 
