@@ -16,7 +16,7 @@ dict_lock = threading.Lock()
 def commit_interval_type(x):
     x = float(x)
     if x<=0:
-        raise argparse.ArgumenTypeError("commit interval must be a positive number denoting seconds")
+        raise argparse.ArgumentTypeError("commit interval must be a positive number denoting seconds")
     return x
 
 
@@ -42,8 +42,8 @@ def setup_parser() -> argparse.ArgumentParser:
                         help="To avoid the DB growing indefinitely, purge timestamps older than T_purge seconds with every commit.")
 
     parser.add_argument('--commit-interval', metavar='T', type=commit_interval_type, default=1, 
-                        help="If T>0, database transaction are commited every T seconds. "
-                              "If T==0, each transaction is commited, which might reduce in high load.")
+                        help="If T>0, database transaction are committed every T seconds. "
+                              "If T==0, each transaction is committed, which might reduce in high load.")
 
     return parser
 
@@ -53,7 +53,7 @@ def on_message(mqtt_client, userdata, message):
     Parameters
     ----------
     mqtt_client: mqtt.Client
-        the client sqlite_coninstance for this callback
+        the client instance for this callback
     userdata:
         the private user data as set in Client() or user_data_set()
     message:    mqtt.MQTTMessage
@@ -172,7 +172,7 @@ def main():
         else:
             logger.info(f'Subscribed to {topic}.')
 
-    # setup eventloop
+    # run event loop
     client.loop_forever()
 
 
