@@ -44,6 +44,9 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument('--commit-interval', metavar='T', type=commit_interval_type, default=1, 
                         help="If T>0, database transaction are committed every T seconds. "
                               "If T==0, each transaction is committed, which might reduce in high load.")
+    
+    parser.add_argument('--verbose', '-v',  action='store_true',
+                        help='Enable verbose output to stdout.')
 
     return parser
 
@@ -133,10 +136,14 @@ def init_DB(db_filename):
 
 def main():
 
-    logger.setLevel(logging.INFO)
 
     p = setup_parser()
     args = p.parse_args()
+
+
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    
 
     init_DB(args.db_filename)
 
