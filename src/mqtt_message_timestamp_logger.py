@@ -88,37 +88,38 @@ def on_message(mqtt_client, userdata, message):
             
 
 def commit_thread(db_filename, interval = 1, history_retention_duration=3600):
-    con = sqlite3.connect(db_filename)
+    
     global shared_dict, shared_dict_times, shared_diff_dict
-    while True:
-        with dict_lock:
-            if shared_dict:
-                for key, value in shared_dict.items():
-                    diff = None
-                    if key in shared_diff_dict:
-                        diff = shared_diff_dict[key]
-                    else:
-                        cur = con.execute('SELECT timestamp from topic_last_seen WHERE topic=?', (key,))
-                        res = cur.fetchone()
-                        if res:
-                            diff = value - res[0]
-                    if diff is not None:
-                        con.execute('INSERT OR REPLACE INTO topic_last_interval VALUES (?, ?)', (key, diff))
+    with sqlite3.connect(db_filename) as con:
+        while True:
+            with dict_lock:
+                if shared_dict:
+                    for key, value in shared_dict.items():
+                        diff = None
+                        if key in shared_diff_dict:
+                            diff = shared_diff_dict[key]
+                        else:
+                            cur = con.execute('SELECT timestamp from topic_last_seen WHERE topic=?', (key,))
+                            res = cur.fetchone()
+                            if res:
+                                diff = value - res[0]
+                        if diff is not None:
+                            con.execute('INSERT OR REPLACE INTO topic_last_interval VALUES (?, ?)', (key, diff))
 
-                    con.execute('INSERT OR REPLACE INTO topic_last_seen VALUES (?, ?)', (key, value))
+                        con.execute('INSERT OR REPLACE INTO topic_last_seen VALUES (?, ?)', (key, value))
 
-                    logger.debug(f"Inserted {key}, {value}, {diff}")
-                for key, lst in shared_dict_times.items():
-                    for value in lst:
-                        con.execute('INSERT INTO topic_receive_times VALUES (?, ?)', (key, value))
+                        logger.debug(f"Inserted {key}, {value}, {diff}")
+                    for key, lst in shared_dict_times.items():
+                        for value in lst:
+                            con.execute('INSERT INTO topic_receive_times VALUES (?, ?)', (key, value))
 
-                shared_dict = {}
-                shared_diff_dict = {}
-                shared_dict_times = {}
+                    shared_dict = {}
+                    shared_diff_dict = {}
+                    shared_dict_times = {}
 
-        con.execute("DELETE FROM topic_receive_times WHERE timestamp <= (?)", (time.time() - history_retention_duration,))
-        con.commit()
-        time.sleep(interval)
+            con.execute("DELETE FROM topic_receive_times WHERE timestamp <= (?)", (time.time() - history_retention_duration,))
+            con.commit()
+            time.sleep(interval)
 
 
 def init_DB(db_filename):
@@ -144,7 +145,10 @@ def main():
 
     # if transaction should be collected, start database connection in separate thread
     if args.commit_interval > 0:
-        thd = threading.Thread(target = commit_thread, args=(args.db_filename, args.commit_interval, args.history_retention_duration),)
+        thd = threading.Thread(target = commit_thread, args=(args.db_filename, 
+                                                             args.commit_interval, 
+                                                             args.history_retention_duration),
+                               daemon=True)
         thd.start()
     else:
         userdata['sqlite_con'] = sqlite3.connect(args.db_filename)
