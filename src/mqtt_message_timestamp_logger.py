@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig()
 
 shared_dict = {}
+shared_dict_times = {}
 shared_diff_dict = {}
 dict_lock = threading.Lock()
 
@@ -36,6 +37,9 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument('--mqtt-topic', type=str, action='append', default=[])
 
     parser.add_argument('--client-id', type=str, default="")
+
+    parser.add_argument('--history-retention-duration', metavar="T_purge", type=float, default=3600,
+                        help="To avoid the DB growing indefinitely, purge timestamps older than T_purge seconds with every commit.")
 
     parser.add_argument('--commit-interval', metavar='T', type=commit_interval_type, default=1, 
                         help="If T>0, database transaction are commited every T seconds. "
@@ -68,17 +72,24 @@ def on_message(mqtt_client, userdata, message):
                 diff = now - res[0]
                 con.execute('INSERT OR REPLACE INTO topic_last_interval VALUES (?, ?)', (message.topic, diff))
             con.execute('INSERT OR REPLACE INTO topic_last_seen VALUES (?, ?)', (message.topic, now))
-            logger.debug(f"Inserting '{message.topic}, {now}, {diff}")
+            con.execute('INSERT INTO topic_receive_times VALUES (?, ?)', (message.topic, now))
+            con.execute("DELETE FROM topic_receive_times WHERE timestamp <= (?)",
+                        (time.time() - userdata['history_retention_duration'],))
+
+            logger.debug(f"Inserted '{message.topic}, {now}, {diff}")
     else:
         with dict_lock:
             if message.topic in shared_dict:
                 shared_diff_dict[message.topic]=now - shared_dict[message.topic]
-            shared_dict[message.topic] = time.time()
+            shared_dict[message.topic] = now
+            if message.topic not in shared_dict_times:
+                shared_dict_times[message.topic] = []
+            shared_dict_times[message.topic].append(now)
             
 
-def commit_thread(db_filename, interval = 1):
+def commit_thread(db_filename, interval = 1, history_retention_duration=3600):
     con = sqlite3.connect(db_filename)
-    global shared_dict
+    global shared_dict, shared_dict_times, shared_diff_dict
     while True:
         with dict_lock:
             if shared_dict:
@@ -97,8 +108,16 @@ def commit_thread(db_filename, interval = 1):
                     con.execute('INSERT OR REPLACE INTO topic_last_seen VALUES (?, ?)', (key, value))
 
                     logger.debug(f"Inserted {key}, {value}, {diff}")
-                con.commit()
+                for key, lst in shared_dict_times.items():
+                    for value in lst:
+                        con.execute('INSERT INTO topic_receive_times VALUES (?, ?)', (key, value))
+
                 shared_dict = {}
+                shared_diff_dict = {}
+                shared_dict_times = {}
+
+        con.execute("DELETE FROM topic_receive_times WHERE timestamp <= (?)", (time.time() - history_retention_duration,))
+        con.commit()
         time.sleep(interval)
 
 
@@ -106,6 +125,7 @@ def init_DB(db_filename):
     con = sqlite3.connect(db_filename)
     con.execute("CREATE TABLE IF NOT EXISTS topic_last_seen(topic TEXT UNIQUE, timestamp REAL)")
     con.execute("CREATE TABLE IF NOT EXISTS topic_last_interval(topic TEXT UNIQUE, timestamp REAL)")
+    con.execute("CREATE TABLE IF NOT EXISTS topic_receive_times(topic TEXT, timestamp REAL)")
     con.commit()
     con.close()
 
@@ -119,11 +139,12 @@ def main():
 
     init_DB(args.db_filename)
 
-    userdata = {'commit_interval': args.commit_interval==0}
+    userdata = {'commit_interval': args.commit_interval==0,
+                'history_retention_duration': args.history_retention_duration}
 
     # if transaction should be collected, start database connection in separate thread
     if args.commit_interval > 0:
-        thd = threading.Thread(target = commit_thread, args=(args.db_filename, args.commit_interval))
+        thd = threading.Thread(target = commit_thread, args=(args.db_filename, args.commit_interval, args.history_retention_duration),)
         thd.start()
     else:
         userdata['sqlite_con'] = sqlite3.connect(args.db_filename)
