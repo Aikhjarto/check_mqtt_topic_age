@@ -45,12 +45,6 @@ def main():
     con = sqlite3.connect(args.db_filename)
     con.create_function("REGEXP", 2, regexp)
 
-    cur = con.execute("SELECT name FROM sqlite_master")
-    tables = cur.fetchone()
-    if not tables or 'topic_last_seen' not in tables:
-        print(f'UNKNOWN - Cannot find table "topic_last_seen" in {args.db_filename}')
-        exit(UNKNOWN)
-
     timedelta_warning = abs(timedelta(seconds=float(args.w)))
     timedelta_critical = abs(timedelta(seconds=float(args.c)))
 
@@ -67,32 +61,37 @@ def main():
 
     timestamp = datetime.min
     for topic in args.mqtt_topic:
-        if topic.find('+') >= 0 or topic.find('#') >= 0:
-            pattern = topic.replace('+', '[^/]+').replace('#', '.*')
-            cur = con.cursor()
-            cur.execute(f'SELECT MAX("timestamp") from "topic_last_seen" WHERE topic REGEXP ?', (pattern,))
-            res = cur.fetchone()
-            if not res[0]:
-                print(f'UNKNOWN - No data found for pattern {topic} in file {args.db_filename}')
-                exit(UNKNOWN)
+        try:
+            if topic.find('+') >= 0 or topic.find('#') >= 0:
+                pattern = topic.replace('+', '[^/]+').replace('#', '.*')
+                cur = con.cursor()
+                cur.execute(f'SELECT MAX("timestamp") from "topic_last_seen" WHERE topic REGEXP ?', (pattern,))
+                res = cur.fetchone()
+                if not res[0]:
+                    print(f'UNKNOWN - No data found for pattern {topic} in file {args.db_filename}')
+                    exit(UNKNOWN)
+                else:
+                    timestamp = max(timestamp, datetime.fromtimestamp((res[-1])))
             else:
-                timestamp = max(timestamp, datetime.fromtimestamp((res[-1])))
-        else:
-            cur = con.cursor()
-            cur.execute(f'SELECT "timestamp" from "topic_last_seen" WHERE topic=?', (topic,))
-            res = cur.fetchone()
-            if not res:
-                print(f'UNKNOWN - No data found for topic {topic} in file {args.db_filename}')
-                exit(UNKNOWN)
-            else:
-                timestamp = max(timestamp, datetime.fromtimestamp((res[-1])))
+                cur = con.cursor()
+                cur.execute('SELECT "timestamp" from "topic_last_seen" WHERE topic=?', (topic,))
+                res = cur.fetchone()
+                if not res:
+                    print(f'UNKNOWN - No data found for topic {topic} in file {args.db_filename}')
+                    exit(UNKNOWN)
+                else:
+                    timestamp = max(timestamp, datetime.fromtimestamp((res[-1])))
+
+        except Exception as e:
+            print(f'UNKNOWN - {e} {args.db_filename}')
+            exit(UNKNOWN)
 
     # https://assets.nagios.com/downloads/nagioscore/docs/nagioscore/3/en/pluginapi.html
     SERVICEPERFDATA = f'|age={(datetime.now()-timestamp).seconds}s;' \
                       f'{timedelta_warning.seconds};{timedelta_critical.seconds}'
     SERVICEOUTPUT = f'Last sensor update: {timestamp}'
     if timestamp < datetime.now()-abs(timedelta_critical):
-        print(f'CRITICAL - ' + SERVICEOUTPUT + SERVICEPERFDATA)
+        print(f'CRITICAL - {SERVICEOUTPUT}{SERVICEPERFDATA}')
         exit(CRITICAL)
     elif timestamp < datetime.now()-abs(timedelta_warning):
         print(f'WARNING - {SERVICEOUTPUT}{SERVICEPERFDATA}')
