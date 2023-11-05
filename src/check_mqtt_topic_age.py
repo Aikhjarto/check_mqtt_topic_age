@@ -95,11 +95,10 @@ def main():
         print(f'CRITICAL - ' + SERVICEOUTPUT + SERVICEPERFDATA)
         exit(CRITICAL)
     elif timestamp < datetime.now()-abs(timedelta_warning):
-        print(f'WARNING - ' + SERVICEOUTPUT + SERVICEPERFDATA)
-        print('WARNING - ')
+        print(f'WARNING - {SERVICEOUTPUT}{SERVICEPERFDATA}')
         exit(WARNING)
     else:
-        print(f'OK - ' + SERVICEOUTPUT + SERVICEPERFDATA)
+        print(f'OK - {SERVICEOUTPUT}{SERVICEPERFDATA}')
         exit(OK)
 
 
