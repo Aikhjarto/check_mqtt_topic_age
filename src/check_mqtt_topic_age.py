@@ -87,8 +87,10 @@ def main():
             exit(UNKNOWN)
 
     # https://assets.nagios.com/downloads/nagioscore/docs/nagioscore/3/en/pluginapi.html
+    # noinspection PyPep8Naming
     SERVICEPERFDATA = f'|age={(datetime.now()-timestamp).seconds}s;' \
                       f'{timedelta_warning.seconds};{timedelta_critical.seconds}'
+    # noinspection PyPep8Naming
     SERVICEOUTPUT = f'Last sensor update: {timestamp}'
     if timestamp < datetime.now()-abs(timedelta_critical):
         print(f'CRITICAL - {SERVICEOUTPUT}{SERVICEPERFDATA}')
