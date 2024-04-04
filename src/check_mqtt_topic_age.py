@@ -49,7 +49,8 @@ def main():
     timedelta_critical = abs(timedelta(seconds=float(args.c)))
 
     if timedelta_warning >= timedelta_critical:
-        raise RuntimeError('Warning age must be smaller than critical age')
+        print('UNKNOWN - warning age must be smaller than critical age')
+        exit(UNKNOWN)
 
     if not os.path.isfile(args.db_filename):
         print(f'UNKNOWN - File {args.db_filename} does not exist')
