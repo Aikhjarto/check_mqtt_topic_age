@@ -13,15 +13,16 @@ shared_dict_times = {}
 shared_diff_dict = {}
 dict_lock = threading.Lock()
 
+
 def commit_interval_type(x):
     x = float(x)
-    if x<=0:
+    if x <= 0:
         raise argparse.ArgumentTypeError("commit interval must be a positive number denoting seconds")
     return x
 
 
 def setup_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser('mqtt_message_timestamp_logger')
 
     parser.add_argument('--db-filename', type=str, required=True)
 
@@ -39,11 +40,12 @@ def setup_parser() -> argparse.ArgumentParser:
     parser.add_argument('--client-id', type=str, default="")
 
     parser.add_argument('--history-retention-duration', metavar="T_purge", type=float, default=3600,
-                        help="To avoid the DB growing indefinitely, purge timestamps older than T_purge seconds with every commit.")
+                        help="To avoid the DB growing indefinitely, purge timestamps older than "
+                             "T_purge seconds with every commit.")
 
     parser.add_argument('--commit-interval', metavar='T', type=commit_interval_type, default=1, 
                         help="If T>0, database transaction are committed every T seconds. "
-                              "If T==0, each transaction is committed, which might reduce in high load.")
+                             "If T==0, each transaction is committed, which might reduce in high load.")
     
     parser.add_argument('--verbose', '-v',  action='store_true',
                         help='Enable verbose output to stdout.')
@@ -83,14 +85,14 @@ def on_message(mqtt_client, userdata, message):
     else:
         with dict_lock:
             if message.topic in shared_dict:
-                shared_diff_dict[message.topic]=now - shared_dict[message.topic]
+                shared_diff_dict[message.topic] = now - shared_dict[message.topic]
             shared_dict[message.topic] = now
             if message.topic not in shared_dict_times:
                 shared_dict_times[message.topic] = []
             shared_dict_times[message.topic].append(now)
             
 
-def commit_thread(db_filename, interval = 1, history_retention_duration=3600):
+def commit_thread(db_filename, interval=1, history_retention_duration=3600):
     
     global shared_dict, shared_dict_times, shared_diff_dict
     with sqlite3.connect(db_filename) as con:
@@ -120,7 +122,8 @@ def commit_thread(db_filename, interval = 1, history_retention_duration=3600):
                     shared_diff_dict = {}
                     shared_dict_times = {}
 
-            con.execute("DELETE FROM topic_receive_times WHERE timestamp <= (?)", (time.time() - history_retention_duration,))
+            con.execute("DELETE FROM topic_receive_times WHERE timestamp <= (?)",
+                        (time.time() - history_retention_duration,))
             con.commit()
             time.sleep(interval)
 
@@ -136,25 +139,22 @@ def init_DB(db_filename):
 
 def main():
 
-
     p = setup_parser()
     args = p.parse_args()
 
-
     if args.verbose:
         logger.setLevel(logging.DEBUG)
-    
 
     init_DB(args.db_filename)
 
-    userdata = {'commit_interval': args.commit_interval==0,
+    userdata = {'commit_interval': args.commit_interval == 0,
                 'history_retention_duration': args.history_retention_duration}
 
     # if transaction should be collected, start database connection in separate thread
     if args.commit_interval > 0:
-        thd = threading.Thread(target = commit_thread, args=(args.db_filename, 
-                                                             args.commit_interval, 
-                                                             args.history_retention_duration),
+        thd = threading.Thread(target=commit_thread, args=(args.db_filename,
+                                                           args.commit_interval,
+                                                           args.history_retention_duration),
                                daemon=True)
         thd.start()
     else:

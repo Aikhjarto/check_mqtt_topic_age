@@ -16,6 +16,8 @@ classifiers = [
 ]
 dependencies = [
     "paho-mqtt",
+    "typing-extensions",
+    "numpy",
 ]
 dynamic = ["version"]
 

@@ -9,5 +9,7 @@ setup(name="check_mqtt_topic_age",
       url='https://github.com/Aikhjarto/check_mqtt_topic_age',
       packages=find_packages(where='src'),
       package_dir={"": "src"},
-      install_requires=["paho-mqtt"],
+      install_requires=["paho-mqtt",
+                        "typing-extensions",
+                        "numpy",],
       )

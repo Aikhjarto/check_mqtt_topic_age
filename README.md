@@ -4,13 +4,13 @@ most recent time-of-arrival,
 as well as a nagios/ncinga compatible check script to the age of the topics.
 
 # Usage
-Run `mqtt_message_timestamp_logger.py` in background, e.g. via systemd.
+Run `python3 -m mqtt_message_timestamp_logger` in background, e.g. via systemd.
 An example for a service can be found in the folder `data`.
 It will populate a database with the most recent arrival times of messages 
 for all observed topics.
 
-Then use `check_mqtt_topic_age.py` to check for those timestamps.
-The output of `check_mqtt_topic_age.py` is compatible with nagios/ncinga.
+Then use `python3 -m check_mqtt_topic_age` to check for those timestamps.
+The output of `python3 -m check_mqtt_topic_age` is compatible with nagios/ncinga.
 
 
 # Disclaimer
