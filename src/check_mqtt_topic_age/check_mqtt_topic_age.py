@@ -110,7 +110,7 @@ def run_check(db_filename, w, c, topics):
                 if not res:
                     return UNKNOWN, f'UNKNOWN - No data found for topic {topic} in file {db_filename}'
                 else:
-                    timestamp = max(timestamp, fromisoformat(res[-1]))
+                    timestamp = max(timestamp, datetime.datetime.fromtimestamp(res[-1]))
 
         except Exception as e:
             return UNKNOWN,  f'UNKNOWN - {e} {db_filename}, {traceback.format_exc()}'
