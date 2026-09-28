@@ -16,7 +16,12 @@ import time
 
 import paho.mqtt.client as mqtt
 
-from check_mqtt_topic_age.check_mqtt_topic_age import __version__
+try:
+    from check_mqtt_topic_age.check_mqtt_topic_age import __version__
+except ImportError:
+    # run as a script from a checkout
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from check_mqtt_topic_age.check_mqtt_topic_age import __version__
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
