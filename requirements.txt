@@ -1,3 +1,1 @@
-paho-mqtt
-typing-extensions
-numpy
+paho-mqtt>=1.5

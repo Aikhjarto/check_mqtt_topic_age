@@ -1,15 +1,41 @@
 [Unit]
-Description=MQTT message timestamp logger
-After=network.target
+Description=MQTT message timestamp logger for check_mqtt_topic_age
+Documentation=https://github.com/Aikhjarto/check_mqtt_topic_age
+Wants=network-online.target
+After=network-online.target mosquitto.service
 
 [Service]
-User=nagios
-ExecStart=/usr/bin/python3 -u -m mqtt_message_timestamp_logger --db-filename /var/lib/nagios/mqtt_message_timestamp.db --mqtt-topic '#'
-
+Type=exec
+User=mqtt-timestamp-logger
+Group=mqtt-timestamp-logger
+# LOGGER_OPTIONS: broker, topics, credentials, see mqtt_message_timestamp_logger --help
+EnvironmentFile=-/etc/mqtt_message_timestamp_logger.conf
+ExecStart=/usr/bin/mqtt_message_timestamp_logger --db-filename /var/lib/mqtt_message_timestamp_logger/topics.db $LOGGER_OPTIONS
+# check_mqtt_topic_age runs as the monitoring user and has to read the database
+StateDirectory=mqtt_message_timestamp_logger
+StateDirectoryMode=0755
+UMask=0022
+Restart=always
 # Restart every >2 seconds to avoid StartLimitInterval failure
 RestartSec=10
-Restart=always
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target
-

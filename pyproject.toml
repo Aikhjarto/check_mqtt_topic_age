@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,17 +7,16 @@ name = "check_mqtt_topic_age"
 authors = [
     {name = "Thomas Wagner", email = "wagner-thomas@gmx.at"},
 ]
-description = "Logs most recent time-of-arrival of mqtt messages"
+description = "Nagios/Icinga plugin checking when messages last arrived on MQTT topics, and the daemon logging them"
 readme = "README.md"
-requires-python = ">=3.6"
-license = {text = "GPLv2"}
+requires-python = ">=3.7"
+license = {text = "GPL-2.0-or-later"}
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Topic :: System :: Monitoring",
 ]
 dependencies = [
-    "paho-mqtt",
-    "typing-extensions",
-    "numpy",
+    "paho-mqtt>=1.5",
 ]
 dynamic = ["version"]
 
@@ -25,4 +24,11 @@ dynamic = ["version"]
 repository = 'https://github.com/Aikhjarto/check_mqtt_topic_age'
 
 [project.scripts]
-check_mqtt_topic_age = "check_mqtt_topic_age:main"
+check_mqtt_topic_age = "check_mqtt_topic_age.check_mqtt_topic_age:main"
+mqtt_message_timestamp_logger = "mqtt_message_timestamp_logger.mqtt_message_timestamp_logger:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "check_mqtt_topic_age.check_mqtt_topic_age.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
